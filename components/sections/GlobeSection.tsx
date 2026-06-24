@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import createGlobe from "cobe";
 import { usePersona } from "../features/PersonaContext";
@@ -13,6 +13,7 @@ const CITY_LABELS: Record<string, string> = {
 
 export default function GlobeSection() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [loaded, setLoaded] = useState(false);
   const { detectionData } = usePersona();
   const country = detectionData?.country || "IN";
   const label = detectionData?.city 
@@ -27,10 +28,19 @@ export default function GlobeSection() {
     let phi = 0;
     if (!canvasRef.current) return;
 
-    // Ensure canvas has initial dimensions
     const canvas = canvasRef.current;
-    canvas.width = 600 * 2;
-    canvas.height = 600 * 2;
+    let width = canvas.offsetWidth || 600;
+
+    const onResize = () => {
+      if (canvasRef.current) {
+        width = canvasRef.current.offsetWidth;
+      }
+    };
+    window.addEventListener("resize", onResize);
+    onResize();
+
+    canvas.width = width * 2;
+    canvas.height = width * 2;
 
     let globe: any;
 
@@ -57,8 +67,8 @@ export default function GlobeSection() {
     try {
       globe = createGlobe(canvas, {
         devicePixelRatio: 2,
-        width: 600 * 2,
-        height: 600 * 2,
+        width: width * 2,
+        height: width * 2,
         phi: 0,
         theta: 0,
         dark: 1,
@@ -72,10 +82,12 @@ export default function GlobeSection() {
         onRender: (state) => {
           state.phi = phi;
           phi += 0.005;
+          state.width = width * 2;
+          state.height = width * 2;
         },
       });
 
-      canvas.style.opacity = "1";
+      setLoaded(true);
     } catch (e) {
       console.error("Globe failed to initialize:", e);
     }
@@ -84,6 +96,8 @@ export default function GlobeSection() {
       if (globe) {
         globe.destroy();
       }
+      window.removeEventListener("resize", onResize);
+      setLoaded(false);
     };
   }, [userLat, userLon]);
 
@@ -98,15 +112,14 @@ export default function GlobeSection() {
             viewport={{ once: true }}
             className="flex items-center justify-center"
           >
-            <div style={{ width: 600, maxWidth: "100%", height: "auto", aspectRatio: "1 / 1" }}>
+            <div style={{ width: "100%", maxWidth: 600, aspectRatio: "1 / 1" }}>
               <canvas
                 ref={canvasRef}
                 style={{
-                  width: 600,
-                  maxWidth: "100%",
-                  height: "auto",
-                  aspectRatio: "1 / 1",
-                  opacity: 0,
+                  width: "100%",
+                  height: "100%",
+                  opacity: loaded ? 1 : 0,
+                  transition: "opacity 1s ease",
                 }}
               />
             </div>
